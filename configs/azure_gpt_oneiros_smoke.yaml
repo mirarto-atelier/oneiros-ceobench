@@ -1,0 +1,32 @@
+name: azure-gpt-oneiros-smoke
+description: Short smoke run for validating the CEO-Bench + Oneiros integration.
+
+run:
+  days: 28
+  seed: 42
+  scenario: default
+  initial_cash: 1000000
+
+model:
+  provider: azure_openai
+  model_label: gpt-5
+  deployment: ${AZURE_OPENAI_DEPLOYMENT}
+  reasoning_effort: high
+
+azure_openai:
+  endpoint: ${AZURE_OPENAI_ENDPOINT}
+  api_key_env: AZURE_OPENAI_API_KEY
+  api_version: ${AZURE_OPENAI_API_VERSION}
+
+paths:
+  ceobench_repo: ../ceobench-src
+  oneiros_repo: ../oneiros
+
+oneiros:
+  bin: ${ONEIROS_BIN:-oneiros}
+  memory_mode: run_scoped
+  ingest_hidden_state: false
+
+publication:
+  publish_raw_transcripts: false
+  publish_raw_oneiros_db: false

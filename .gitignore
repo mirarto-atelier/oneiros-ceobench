@@ -1,0 +1,31 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Local benchmark artifacts. These can contain API output, raw transcripts,
+# simulator state, Oneiros DBs, and other heavyweight or sensitive data.
+runs/
+codex_agent_runs/
+ceobench_workspace/
+agent_workspace/
+*.db
+*.db-*
+*.nmdb
+*.sqlite
+*.sqlite3
+*.jsonl.raw
+
+# Keep compact, sanitized summaries under results/.
+results/raw/
+results/private/

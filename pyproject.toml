@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oneiros-ceobench"
+version = "0.1.0"
+description = "Public runner and results site for evaluating Oneiros on CEO-Bench"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Jason Chang" }]
+requires-python = ">=3.12"
+keywords = ["oneiros", "ceobench", "benchmark", "memory", "agents"]
+dependencies = [
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+oneiros-ceobench = "oneiros_ceobench.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0.12",
+]
+
+[project.urls]
+Repository = "https://github.com/mirarto-atelier/oneiros-ceobench"
+Documentation = "https://mirarto-atelier.github.io/oneiros-ceobench/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["oneiros_ceobench"]
+include = [
+    "oneiros_ceobench/**/*.py",
+    "configs/*.yaml",
+    "prompts/*.md",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
