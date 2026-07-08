@@ -37,6 +37,8 @@ oneiros extract --session <week-session-id>
 
 The next week starts only after extraction succeeds.
 
+Every extraction call passes Oneiros' native `--record-to` flag. The per-week event stream is written to `runs/<run_id>/logs/week_NNN_extract.jsonl`, so long-running extraction can be monitored with `tail -f`.
+
 ## Leakage Rule
 
 Live ingestion must exclude hidden simulator state, including `world.nmdb`. Hidden state can be used after the run for scoring and analysis only.

@@ -158,8 +158,11 @@ def _cmd_stage_week(run_dir: Path, week: int, jsonl_path: Path) -> int:
 def _cmd_extract_week(run_dir: Path, week: int, oneiros_bin: str | None) -> int:
     layout = RunLayout.from_run_dir(run_dir)
     runtime = RunScopedOneiros(layout, oneiros_bin or _manifest_oneiros_bin(run_dir) or "oneiros")
+    log_path = runtime.extract_log_path(week)
+    print(f"extraction log: {log_path}", flush=True)
+    print(f"tail with: tail -f {log_path}", flush=True)
     try:
-        proc = runtime.extract_week(week, check=False)
+        proc = runtime.extract_week(week, check=False, record_to=log_path)
     except FileNotFoundError:
         print(f"oneiros binary not found: {runtime.oneiros_bin}", file=sys.stderr)
         return 127

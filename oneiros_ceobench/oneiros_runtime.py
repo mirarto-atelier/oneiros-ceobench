@@ -63,10 +63,31 @@ class RunScopedOneiros:
         out.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
         return out
 
-    def extract_week(self, week: int, *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def extract_log_path(self, week: int) -> Path:
+        if week < 1:
+            raise ValueError("week must be >= 1")
+        return self.layout.logs_dir / f"week_{week:03d}_extract.jsonl"
+
+    def extract_week(
+        self,
+        week: int,
+        *,
+        check: bool = True,
+        record_to: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         session_id = self.week_session_id(week)
+        record_to = record_to or self.extract_log_path(week)
+        record_to.parent.mkdir(parents=True, exist_ok=True)
+        record_to.touch(mode=0o600, exist_ok=True)
         return subprocess.run(
-            [self.oneiros_bin, "extract", "--session", session_id],
+            [
+                self.oneiros_bin,
+                "extract",
+                "--session",
+                session_id,
+                "--record-to",
+                str(record_to),
+            ],
             env=self.env(),
             cwd=str(self.layout.run_dir),
             capture_output=True,

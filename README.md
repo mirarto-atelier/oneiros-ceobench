@@ -62,6 +62,18 @@ uv run oneiros-ceobench ingest-week \
   --jsonl examples/week_001_observed.jsonl
 ```
 
+`extract-week` / `ingest-week` writes Oneiros' extraction event stream to:
+
+```text
+runs/<run_id>/logs/week_001_extract.jsonl
+```
+
+Tail it while extraction is running:
+
+```bash
+tail -f runs/<run_id>/logs/week_001_extract.jsonl
+```
+
 Weekly transcript input is OpenAI-style JSONL with `role`, `content`, and optional `timestamp` fields. System messages are ignored; `user`, `assistant`, `tool`, and `function` messages are kept.
 
 ## Azure OpenAI
