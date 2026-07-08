@@ -68,16 +68,35 @@ Weekly transcript input is OpenAI-style JSONL with `role`, `content`, and option
 
 The default config is Azure OpenAI-oriented because the intended benchmark path uses GPT deployments instead of Anthropic models.
 
-Set the provider values expected by your CEObench/Codex adapter layer:
+By default, `configs/azure_gpt_oneiros_smoke.yaml` inherits Azure settings from your existing Oneiros config:
 
-```bash
-export AZURE_OPENAI_ENDPOINT="https://..."
-export AZURE_OPENAI_API_KEY="..."
-export AZURE_OPENAI_API_VERSION="..."
-export AZURE_OPENAI_DEPLOYMENT="..."
+```text
+~/.oneiros/config.toml
+[extractor]
+provider = "azure-responses"
+
+[extractor.azure_responses]
+base_url = "..."
+deployment = "..."
+api_version = "..."
+api_key = "..."
+ca_bundle = "..."
 ```
 
-The scaffold records this provider intent in `manifest.json`; it does not call Azure OpenAI directly yet. The CEObench agent wrapper will consume these settings when the runnable benchmark loop is added.
+Check what the benchmark resolves without printing secrets:
+
+```bash
+uv run oneiros-ceobench doctor --config configs/azure_gpt_oneiros_smoke.yaml
+```
+
+Print shell exports for tools that need OpenAI/Azure env vars. API keys are omitted unless explicitly requested:
+
+```bash
+uv run oneiros-ceobench env --config configs/azure_gpt_oneiros_smoke.yaml
+uv run oneiros-ceobench env --config configs/azure_gpt_oneiros_smoke.yaml --include-secrets
+```
+
+The scaffold records non-secret provider metadata in `manifest.json`; it does not write API keys into manifests. The CEObench agent wrapper will consume these resolved settings when the runnable benchmark loop is added.
 
 ## Leakage Boundary
 

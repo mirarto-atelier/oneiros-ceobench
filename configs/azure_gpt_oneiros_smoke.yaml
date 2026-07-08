@@ -9,14 +9,21 @@ run:
 
 model:
   provider: azure_openai
-  model_label: gpt-5
-  deployment: ${AZURE_OPENAI_DEPLOYMENT}
+  # Inherited from ~/.oneiros/config.toml by default.
+  model_label: ""
+  deployment: ""
   reasoning_effort: high
 
 azure_openai:
-  endpoint: ${AZURE_OPENAI_ENDPOINT}
+  # Reuse the Azure Responses settings already configured for Oneiros.
+  # This keeps secrets out of this repo and out of committed config files.
+  source: oneiros
+  oneiros_config: ~/.oneiros/config.toml
+  provider_section: auto
+  endpoint: ""
   api_key_env: AZURE_OPENAI_API_KEY
-  api_version: ${AZURE_OPENAI_API_VERSION}
+  api_version: ""
+  ca_bundle: ""
 
 paths:
   ceobench_repo: ../ceobench-src

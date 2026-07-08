@@ -25,6 +25,8 @@ ONEIROS_DB_PATH=<run>/oneiros/oneiros.db
 ONEIROS_CONVERSATIONS_DIR=<run>/oneiros/conversations
 ```
 
+The benchmark model/provider settings are inherited from `~/.oneiros/config.toml` by default. The runner reads Oneiros' Azure extractor section at runtime, uses the same endpoint, deployment, API version, API key, and CA bundle for benchmark subprocesses, and writes only redacted/non-secret provider metadata to run manifests.
+
 ## Weekly Ingestion
 
 After a successful `next-week`, the runner stages one observed weekly transcript as a canonical Oneiros conversation under `conversations/fresh/`, then runs:

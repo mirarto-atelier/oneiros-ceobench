@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
+from .oneiros_config import json_env, shell_exports
 from .oneiros_runtime import RunScopedOneiros
 from .results import aggregate_results
 from .state import RunLayout, create_run
@@ -20,6 +21,18 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("--config", type=Path, required=True)
     init.add_argument("--runs-dir", type=Path, default=Path("runs"))
     init.add_argument("--run-id", default=None)
+
+    doctor = sub.add_parser("doctor", help="Check resolved benchmark and Oneiros Azure settings.")
+    doctor.add_argument("--config", type=Path, required=True)
+
+    env_cmd = sub.add_parser("env", help="Print Azure/OpenAI environment derived from config.")
+    env_cmd.add_argument("--config", type=Path, required=True)
+    env_cmd.add_argument("--format", choices=["shell", "json"], default="shell")
+    env_cmd.add_argument(
+        "--include-secrets",
+        action="store_true",
+        help="Include API key values. Default output redacts secrets.",
+    )
 
     stage = sub.add_parser("stage-week", help="Stage an observed weekly JSONL transcript.")
     stage.add_argument("--run-dir", type=Path, required=True)
@@ -45,6 +58,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "init":
         return _cmd_init(args.config, args.runs_dir, args.run_id)
+    if args.command == "doctor":
+        return _cmd_doctor(args.config)
+    if args.command == "env":
+        return _cmd_env(args.config, args.format, args.include_secrets)
     if args.command == "stage-week":
         return _cmd_stage_week(args.run_dir, args.week, args.jsonl)
     if args.command == "extract-week":
@@ -70,6 +87,56 @@ def _cmd_init(config_path: Path, runs_dir: Path, run_id: str | None) -> int:
     print(f"created run: {layout.run_dir}")
     print(f"oneiros db: {layout.oneiros_db}")
     print(f"oneiros conversations: {layout.conversations_dir}")
+    if config.oneiros_azure is not None:
+        print(f"azure source: {config.oneiros_azure.source_path}")
+        print(f"azure deployment: {config.model.deployment}")
+    return 0
+
+
+def _cmd_doctor(config_path: Path) -> int:
+    config = load_config(config_path)
+    print(f"config: {config_path.resolve()}")
+    print(f"run: {config.run.days} days, seed={config.run.seed}, scenario={config.run.scenario}")
+    print(f"model provider: {config.model.provider}")
+    print(f"model deployment: {config.model.deployment or '(unset)'}")
+    print(f"model label: {config.model.model_label}")
+    print(f"azure source: {config.azure_openai.source}")
+    print(f"azure endpoint: {config.azure_openai.endpoint or '(unset)'}")
+    print(f"azure api version: {config.azure_openai.api_version or '(unset)'}")
+    print(f"azure ca bundle: {config.azure_openai.ca_bundle or '(unset)'}")
+    if config.azure_openai.ca_bundle:
+        print(f"azure ca bundle exists: {Path(config.azure_openai.ca_bundle).expanduser().exists()}")
+    if config.oneiros_azure is not None:
+        settings = config.oneiros_azure
+        print(f"oneiros config: {settings.source_path}")
+        print(f"oneiros extractor provider: {settings.extractor_provider}")
+        print(f"oneiros provider section: extractor.{settings.provider_section}")
+        print(f"oneiros api key: {'set' if settings.api_key_set else 'missing'}")
+    return 0
+
+
+def _cmd_env(config_path: Path, output_format: str, include_secrets: bool) -> int:
+    config = load_config(config_path)
+    env: dict[str, str] = {}
+    if config.oneiros_azure is not None:
+        env.update(config.oneiros_azure.env(include_secret=include_secrets))
+    else:
+        if config.azure_openai.endpoint:
+            env["AZURE_OPENAI_ENDPOINT"] = config.azure_openai.endpoint
+            env["OPENAI_BASE_URL"] = config.azure_openai.endpoint
+        if config.model.deployment:
+            env["AZURE_OPENAI_DEPLOYMENT"] = config.model.deployment
+        if config.azure_openai.api_version:
+            env["AZURE_OPENAI_API_VERSION"] = config.azure_openai.api_version
+        if config.azure_openai.ca_bundle:
+            env["NODE_EXTRA_CA_CERTS"] = config.azure_openai.ca_bundle
+            env["REQUESTS_CA_BUNDLE"] = config.azure_openai.ca_bundle
+            env["SSL_CERT_FILE"] = config.azure_openai.ca_bundle
+
+    if output_format == "json":
+        print(json_env(env, redact_secrets=not include_secrets))
+    else:
+        print(shell_exports(env, redact_secrets=not include_secrets))
     return 0
 
 

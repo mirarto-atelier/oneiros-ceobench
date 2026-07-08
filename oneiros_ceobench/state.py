@@ -70,11 +70,16 @@ def create_run(config: RunConfig, runs_dir: Path, run_id: str | None = None) -> 
 
 
 def write_manifest(layout: RunLayout, config: RunConfig) -> None:
+    config_payload = _jsonable(asdict(config))
+    config_payload.pop("oneiros_azure", None)
+    if config.oneiros_azure is not None:
+        config_payload["inherited_oneiros_azure"] = config.oneiros_azure.public_dict()
+
     manifest = {
         "schema_version": 1,
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "run_id": layout.run_dir.name,
-        "config": _jsonable(asdict(config)),
+        "config": config_payload,
         "paths": {
             "run_dir": str(layout.run_dir),
             "ceobench_workspace": str(layout.ceobench_workspace),
