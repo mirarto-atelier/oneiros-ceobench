@@ -20,7 +20,53 @@ CEO-Bench already reports baseline results for frontier models operating out of 
 
 ## Current Status
 
-The repository currently contains the public scaffold: configs, prompt, run manifest tooling, Oneiros transcript staging, and result aggregation. Full benchmark runs will appear here after the CEOBench agent wrapper is wired.
+The repository currently contains configs, prompt, run manifest tooling, Oneiros transcript staging, CEO-Bench Codex loop orchestration, and result aggregation. Full benchmark result summaries will appear here after runs are completed.
+
+## Run The Benchmark
+
+Prerequisites:
+
+- A local `oneiros-ceobench` checkout.
+- Local sibling checkouts of `ceobench-src` and `oneiros`, or updated paths in `configs/azure_gpt_oneiros_smoke.yaml`.
+- Azure OpenAI settings available through your Oneiros config, typically `~/.oneiros/config.toml`.
+- `uv`, `codex`, and `oneiros` available on `PATH`.
+
+Install local dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+Validate the resolved config without printing secrets:
+
+```bash
+uv run oneiros-ceobench doctor --config configs/azure_gpt_oneiros_smoke.yaml
+```
+
+Validate the CEO-Bench path, model, and Codex config overrides without launching the benchmark:
+
+```bash
+uv run oneiros-ceobench run-codex \
+  --config configs/azure_gpt_oneiros_smoke.yaml \
+  --run-id smoke-codex-oneiros \
+  --dry-run
+```
+
+Start the smoke benchmark:
+
+```bash
+uv run oneiros-ceobench run-codex \
+  --config configs/azure_gpt_oneiros_smoke.yaml \
+  --run-id smoke-codex-oneiros
+```
+
+Tail the orchestration log:
+
+```bash
+tail -f runs/smoke-codex-oneiros/logs/pipeline.jsonl
+```
+
+Each successful week writes `runs/<run_id>/weeks/week_NNN_observed.jsonl`, stages it into run-scoped Oneiros state, runs `oneiros extract --record-to runs/<run_id>/logs/week_NNN_extract.jsonl`, and only then starts the next week.
 
 ## Data
 

@@ -127,7 +127,7 @@ uv run oneiros-ceobench env --config configs/azure_gpt_oneiros_smoke.yaml
 uv run oneiros-ceobench env --config configs/azure_gpt_oneiros_smoke.yaml --include-secrets
 ```
 
-The scaffold records non-secret provider metadata in `manifest.json`; it does not write API keys into manifests. The CEObench agent wrapper will consume these resolved settings when the runnable benchmark loop is added.
+The scaffold records non-secret provider metadata in `manifest.json`; it does not write API keys into manifests. The `run-codex` worker consumes the resolved settings through environment variables at run time.
 
 ## Leakage Boundary
 
