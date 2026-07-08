@@ -39,6 +39,8 @@ The next week starts only after extraction succeeds.
 
 Every extraction call passes Oneiros' native `--record-to` flag. The per-week event stream is written to `runs/<run_id>/logs/week_NNN_extract.jsonl`, so long-running extraction can be monitored with `tail -f`.
 
+The Codex adapter starts a fresh Codex thread for the first attempt of each week. If that attempt does not advance the simulator, retry attempts resume only that week's thread. Once `next-week` succeeds, the adapter converts the observed Codex event stream into `week_NNN_observed.jsonl`, extracts it into Oneiros, then resets the Codex thread before starting the next week.
+
 ## Leakage Rule
 
 Live ingestion must exclude hidden simulator state, including `world.nmdb`. Hidden state can be used after the run for scoring and analysis only.

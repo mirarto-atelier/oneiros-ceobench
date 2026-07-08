@@ -17,9 +17,10 @@ This is the initial scaffold. It supports:
 - run-scoped Oneiros paths,
 - observed weekly transcript staging into Oneiros' canonical conversation format,
 - synchronous per-week extraction barriers,
+- CEObench Codex loop orchestration with fresh Codex sessions per week,
 - compact result aggregation for GitHub Pages.
 
-It does not yet patch CEObench's Codex runner. That work should live here or in a CEObench fork, not in Oneiros.
+The CEObench integration is loaded as an adapter at run time. The upstream CEObench and Oneiros checkouts stay clean.
 
 ## Layout
 
@@ -75,6 +76,24 @@ tail -f runs/<run_id>/logs/week_001_extract.jsonl
 ```
 
 Weekly transcript input is OpenAI-style JSONL with `role`, `content`, and optional `timestamp` fields. System messages are ignored; `user`, `assistant`, `tool`, and `function` messages are kept.
+
+To run the Codex-based CEObench loop with run-scoped Oneiros:
+
+```bash
+uv run oneiros-ceobench run-codex \
+  --config configs/azure_gpt_oneiros_smoke.yaml \
+  --run-id smoke-codex-oneiros
+```
+
+Use `--dry-run` first to validate the resolved CEObench path, model, and Codex config overrides without launching the benchmark.
+
+The command prints a tailable pipeline log:
+
+```bash
+tail -f runs/smoke-codex-oneiros/logs/pipeline.jsonl
+```
+
+After each successful `next-week`, the adapter writes `runs/<run_id>/weeks/week_NNN_observed.jsonl`, stages it into the run-scoped Oneiros conversation queue, runs `oneiros extract --record-to runs/<run_id>/logs/week_NNN_extract.jsonl`, and only then starts the next week.
 
 ## Azure OpenAI
 

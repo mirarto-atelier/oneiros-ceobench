@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import json
+import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
-from .config import load_config
+from .codex_loop import OneirosCodexLoop
+from .config import RunConfig, load_config
 from .oneiros_config import json_env, shell_exports
 from .oneiros_runtime import RunScopedOneiros
 from .results import aggregate_results
@@ -50,6 +56,20 @@ def main(argv: list[str] | None = None) -> int:
     ingest.add_argument("--jsonl", type=Path, required=True)
     ingest.add_argument("--oneiros-bin", default=None)
 
+    run_codex = sub.add_parser(
+        "run-codex",
+        help="Run the CEObench Codex agent with run-scoped Oneiros memory.",
+    )
+    run_codex.add_argument("--config", type=Path, required=True)
+    run_codex.add_argument("--runs-dir", type=Path, default=Path("runs"))
+    run_codex.add_argument("--run-id", default=None)
+    run_codex.add_argument("--run-dir", type=Path, default=None)
+    run_codex.add_argument("--codex-bin", default=None)
+    run_codex.add_argument("--oneiros-bin", default=None)
+    run_codex.add_argument("--max-resume-attempts-per-week", type=int, default=3)
+    run_codex.add_argument("--quiet", action="store_true")
+    run_codex.add_argument("--dry-run", action="store_true")
+
     aggregate = sub.add_parser("aggregate-results", help="Build docs/data/runs.json from compact results.")
     aggregate.add_argument("--results-dir", type=Path, default=Path("results"))
     aggregate.add_argument("--output", type=Path, default=Path("docs/data/runs.json"))
@@ -71,6 +91,18 @@ def main(argv: list[str] | None = None) -> int:
         if staged != 0:
             return staged
         return _cmd_extract_week(args.run_dir, args.week, args.oneiros_bin)
+    if args.command == "run-codex":
+        return _cmd_run_codex(
+            args.config,
+            args.runs_dir,
+            args.run_id,
+            args.run_dir,
+            args.codex_bin,
+            args.oneiros_bin,
+            args.max_resume_attempts_per_week,
+            args.quiet,
+            args.dry_run,
+        )
     if args.command == "aggregate-results":
         payload = aggregate_results(args.results_dir, args.output)
         print(f"wrote {args.output} with {len(payload['runs'])} run(s)")
@@ -140,6 +172,111 @@ def _cmd_env(config_path: Path, output_format: str, include_secrets: bool) -> in
     return 0
 
 
+def _cmd_run_codex(
+    config_path: Path,
+    runs_dir: Path,
+    run_id: str | None,
+    run_dir: Path | None,
+    codex_bin: str | None,
+    oneiros_bin: str | None,
+    max_resume_attempts_per_week: int,
+    quiet: bool,
+    dry_run: bool,
+) -> int:
+    config = load_config(config_path)
+    if run_dir is None:
+        layout = create_run(config, runs_dir, run_id)
+        _copy_oneiros_prompt(layout)
+    else:
+        layout = RunLayout.from_run_dir(run_dir)
+        layout.mkdirs()
+        if not (layout.run_dir / "manifest.json").exists():
+            from .state import write_manifest
+
+            write_manifest(layout, config)
+        _copy_oneiros_prompt(layout)
+    print(f"run dir: {layout.run_dir}", flush=True)
+    print(f"pipeline log: {layout.logs_dir / 'pipeline.jsonl'}", flush=True)
+    print(f"tail with: tail -f {layout.logs_dir / 'pipeline.jsonl'}", flush=True)
+    loop = OneirosCodexLoop(
+        config=config,
+        layout=layout,
+        codex_bin=codex_bin,
+        oneiros_bin=oneiros_bin,
+        max_resume_attempts_per_week=max_resume_attempts_per_week,
+    )
+    if dry_run:
+        print(json.dumps(loop.preview(), indent=2, sort_keys=True))
+        return 0
+    proc = _run_codex_worker(
+        config=config,
+        layout=layout,
+        codex_bin=codex_bin,
+        oneiros_bin=oneiros_bin,
+        max_resume_attempts_per_week=max_resume_attempts_per_week,
+        quiet=quiet,
+    )
+    return proc.returncode
+
+
+def _run_codex_worker(
+    *,
+    config: RunConfig,
+    layout: RunLayout,
+    codex_bin: str | None,
+    oneiros_bin: str | None,
+    max_resume_attempts_per_week: int,
+    quiet: bool,
+) -> subprocess.CompletedProcess[Any]:
+    cmd = [
+        "uv",
+        "run",
+        "--project",
+        str(config.paths.ceobench_repo),
+        "python",
+        "-m",
+        "oneiros_ceobench.codex_worker",
+        "--run-dir",
+        str(layout.run_dir),
+        "--max-resume-attempts-per-week",
+        str(max_resume_attempts_per_week),
+    ]
+    if codex_bin:
+        cmd.extend(["--codex-bin", codex_bin])
+    if oneiros_bin:
+        cmd.extend(["--oneiros-bin", oneiros_bin])
+    if quiet:
+        cmd.append("--quiet")
+
+    env = os.environ.copy()
+    env.pop("VIRTUAL_ENV", None)
+    if config.oneiros_azure is not None:
+        env.update(config.oneiros_azure.env(include_secret=True))
+    if not env.get("NMDB_KEY"):
+        nmdb_key = _load_ceobench_embedded_key(config.paths.ceobench_repo)
+        if nmdb_key:
+            env["NMDB_KEY"] = nmdb_key
+    package_root = str(Path(__file__).resolve().parents[1])
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        package_root if not existing_pythonpath else f"{package_root}{os.pathsep}{existing_pythonpath}"
+    )
+    return subprocess.run(cmd, env=env, check=False)
+
+
+def _load_ceobench_embedded_key(ceobench_repo: Path) -> str:
+    key_path = ceobench_repo / "src" / "saas_bench" / "_embedded_key.py"
+    if not key_path.exists():
+        return ""
+    spec = importlib.util.spec_from_file_location("_oneiros_ceobench_embedded_key", key_path)
+    if spec is None or spec.loader is None:
+        return ""
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    value = getattr(module, "_NMDB_KEY", "")
+    return str(value) if value else ""
+
+
 def _cmd_stage_week(run_dir: Path, week: int, jsonl_path: Path) -> int:
     layout = RunLayout.from_run_dir(run_dir)
     layout.mkdirs()
@@ -153,6 +290,12 @@ def _cmd_stage_week(run_dir: Path, week: int, jsonl_path: Path) -> int:
     )
     print(f"staged week {week}: {staged}")
     return 0
+
+
+def _copy_oneiros_prompt(layout: RunLayout) -> None:
+    prompt_src = Path(__file__).resolve().parents[1] / "prompts" / "AGENTS.md"
+    prompt_dst = layout.prompts_dir / "AGENTS.md"
+    shutil.copy2(prompt_src, prompt_dst)
 
 
 def _cmd_extract_week(run_dir: Path, week: int, oneiros_bin: str | None) -> int:

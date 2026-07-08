@@ -26,8 +26,8 @@ azure_openai:
   ca_bundle: ""
 
 paths:
-  ceobench_repo: ../ceobench-src
-  oneiros_repo: ../oneiros
+  ceobench_repo: ../../ceobench-src
+  oneiros_repo: ../../oneiros
 
 oneiros:
   bin: ${ONEIROS_BIN:-oneiros}

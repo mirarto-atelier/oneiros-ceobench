@@ -5,9 +5,10 @@ import subprocess
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from .config import RunConfig
+if TYPE_CHECKING:
+    from .config import RunConfig
 
 
 @dataclass(frozen=True)
